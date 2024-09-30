@@ -1,0 +1,31 @@
+metrics:
+  enabled: true
+
+dashboard:
+# CSI Dashboard helps with CSI Driver observation, disabled by default
+  enabled: true
+  # Basic auth for dashboard
+  auth:
+    enabled: true
+    username: admin
+    password: admin
+
+  ingress:
+    enabled: false
+
+storageClasses:
+- name: "juicefs-sc"
+  enabled: true
+  reclaimPolicy: Delete
+  allowVolumeExpansion: true
+  backend:
+    name: "juicefs"
+    metaurl: "redis://:password@redis-cluster-1727547613:6379/1"
+    storage: "s3"
+    bucket: "http://178.162.171.22:8888/friend"
+    accessKey: AXUAThvxC41SOhTd
+    secretKey: 0G17dSA8GGFDqn5gkdf50B219AqunD0I
+    envs: ""
+    configs: ""
+    trashDays: ""
+    formatOptions: ""
