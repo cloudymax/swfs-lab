@@ -2,7 +2,8 @@ seaweedfsFiler: "178.162.171.22:8888"
 storageClassName: seaweedfs-storage
 isDefaultStorageClass: false
 tlsSecret: ""
-#logVerbosity: 4
+logVerbosity: 4
+cacheCapacityMB: 0
 
 #concurrentWriters: 32
 
@@ -61,7 +62,7 @@ csiLivenessProbe:
   resources: {}
 
 seaweedfsCsiPlugin:
-  image: chrislusf/seaweedfs-csi-driver:latest
+  image: chrislusf/seaweedfs-csi-driver:v1.2.5
   securityContext:
     privileged: true
     capabilities:
@@ -117,3 +118,4 @@ node:
     registration_dir: /var/lib/kubelet/plugins_registry
     plugins_dir: /var/lib/kubelet/plugins
     pods_mount_dir: /var/lib/kubelet/pods
+

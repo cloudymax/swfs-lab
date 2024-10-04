@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: swfs-pvc
+spec:
+  accessModes:
+  - ReadWriteMany
+  storageClassName: seaweedfs-storage
+  resources:
+    requests:
+      storage: 2Gi
