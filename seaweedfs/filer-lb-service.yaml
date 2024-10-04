@@ -8,7 +8,6 @@ metadata:
     app.kubernetes.io/name: seaweedfs
     helm.sh/chart: seaweedfs-4.0.1
   name: seaweedfs-filer
-  namespace: kubevirt
 spec:
   internalTrafficPolicy: Cluster
   ipFamilyPolicy: SingleStack

@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: GRPC
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/auth-realm: Authentication Required - SW-Filer
     nginx.ingress.kubernetes.io/auth-secret: default/ingress-basic-auth-secret
     nginx.ingress.kubernetes.io/auth-type: basic
@@ -25,7 +25,7 @@ metadata:
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/name: seaweedfs
     pelm.sh/chart: seaweedfs-4.0.1
-  name: grpc-ingress-seaweedfs-filer
+  name: ingress-seaweedfs-filer
 spec:
   ingressClassName: nginx
   rules:
@@ -37,5 +37,5 @@ spec:
             name: seaweedfs-filer
             port:
               number: 8888
-        path: /sw-filer-grpc/?(.*)
+        path: /sw-filer/?(.*)
         pathType: ImplementationSpecific
