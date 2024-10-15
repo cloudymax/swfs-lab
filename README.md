@@ -346,9 +346,11 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
 1. Uninstall SeaweedFS, delete the PVCs, secrets, and scheduled backup
 
    ```bash
-   helm uninstall seaweedfs
-
    kubectl delete -f backup.yaml
+   helm uninstall seaweedfs
+   kubectl delete pvc data-default-seaweedfs-master-0
+   kubectl delete pvc data-filer-seaweedfs-filer-0
+   kubectl delete pvc data-seaweedfs-volume-0
    ```
 
 2. Create PVCs to hold our restored data
