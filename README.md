@@ -268,7 +268,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
     - Generate a password and base64 encode it.
 
       ```bash
-      export RESTIC_PASS=$(openssl rand -base64 32)
+      export RESTIC_PASS=""
       ```
 
     - Create a secret manifest
