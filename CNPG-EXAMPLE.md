@@ -22,6 +22,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
 - [Helm](https://helm.sh/docs/intro/install/)
 - [Restic](https://restic.readthedocs.io/en/latest/020_installation.html)
 - S3 CLI tool of your choice, I'll be using [mc](https://github.com/minio/mc)
+- [Postgresql client](https://www.postgresql.org/download/)
 
 <h2 id="k3s-cluster-creation">K3s Cluster creation</h2>
 
@@ -210,10 +211,10 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
 
 7. Create an alias for your server using your S3 CLI tool:
 
-    - You can find the `admin_access_key_id` and `admin_secret_access_key` values in the secret `seaweedfs-s3-secret`
+    - You can find the `accessKey` and `secretKey` values in the secret `seaweedfs-s3-secret`
 
       ```bash
-      mc alias set seaweedfs http://$NODE_IP:8333 $admin_access_key_id $admin_secret_access_key
+      mc alias set seaweedfs http://$NODE_IP:8333 $accessKey $secretKey
       ```
 
 8. Create a bucket that will hold our demo data
@@ -222,19 +223,273 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
       mc mb seaweedfs/backups
       ```
 
-8. Add some data to the bucket
+9. Open the Web UI at http://$NODE_IP:8888 in a browser to view or add more data.
 
+10. base64 encode the Access Key and Secret Key    
+    
+    ```bash
+    export ACCESS_KEY_ID=$(echo -n "" | base64)
+
+    export ACCESS_SECRET_KEY=$(echo -n "" |base64)
+    ```
+    
+11. use the following templates to create your secrets.
+  
+    ```bash
+    /bin/cat << EOF > access_key.yaml
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: swfs-credentials
+    type: Opaque
+    data:
+      "ACCESS_KEY_ID": "$ACCESS_KEY_ID"
+      "ACCESS_SECRET_KEY": "$ACCESS_SECRET_KEY"
+    EOF
+
+    kubectl apply -f access_key.yaml
+    ```
+    
+<h2 id="seaweedfs-instance-and-user-setup">Postgres Cluster setup</h2>
+
+1. Install CertManager
+
+    ```bash
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo update
+
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.crds.yaml
+
+    helm install cert-manager jetstack/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --version v1.13.2
+    ```
+
+2. Install CNPG Operator
+
+    ```bash
+    helm repo add cnpg https://cloudnative-pg.github.io/charts
+    helm upgrade --install cnpg \
+      --namespace cnpg-system \
+      --create-namespace \
+      cnpg/cloudnative-pg \
+      --version 0.19.0
+    ```
+    
+3. Install the CNPG cluster chart
+
+   ```bash
+    helm repo add cnpg-cluster https://small-hack.github.io/cloudnative-pg-cluster-chart
+    helm repo update
+    ```
+
+4. Create an example values.yaml for the Postgres cluster 
+
+    ```bash
+    /bin/cat << EOF > test-values.yaml
+    name: "cnpg"
+    instances: 1
+    imageName: ghcr.io/cloudnative-pg/postgresql:15.4
+    bootstrap:
+      initdb:
+        database: app
+        owner: app
+        secret:
+          name: null
+    certificates:
+      server:
+        enabled: true
+        generate: true
+        serverTLSSecret: ""
+        serverCASecret: ""
+      client:
+        enabled: true
+        generate: true
+        clientCASecret: ""
+        replicationTLSSecret: ""
+      user:
+        enabled: true
+        username:
+          - "app"
+    backup:
+      retentionPolicy: "30d"
+      barmanObjectStore:
+        destinationPath: "s3://postgres15-backups"
+        endpointURL: "http://$LOADBALANCER_IP:32000"
+        s3Credentials:
+          accessKeyId:
+            name: "swfs-credentials"
+            key: "ACCESS_KEY_ID"
+          secretAccessKey:
+            name: "swfs-credentials"
+            key: "ACCESS_SECRET_KEY"
+    scheduledBackup:
+      name: cnpg-backup
+      spec:
+        schedule: "0 * * * * *"
+        backupOwnerReference: self
+        cluster:
+          name: cnpg
+    monitoring:
+      enablePodMonitor: false
+    postgresql:
+      pg_hba:
+        - hostssl all all all cert
+    storage:
+      size: 1Gi
+    testApp:
+      enabled: true
+    EOF
+    ```
+
+5. Create the Postgres cluster
+
+    ```bash
+    helm install cnpg-cluster cnpg-cluster/cnpg-cluster --values test-values.yaml
+    ```
+
+<h2 id="seed-postgres-with-sample-data">Seed Postgres with sample data</h2>
+
+1. Get the user's `tls.key`, `tls.crt`, and `ca.crt` from secrets
+
+    ```bash
+    kubectl get secrets cnpg-app-cert -o yaml |yq '.data."tls.key"' |base64 -d > tls.key
+    chmod 600 tls.key
+    kubectl get secrets cnpg-app-cert -o yaml |yq '.data."tls.crt"' |base64 -d > tls.crt
+    chmod 600 tls.crt
+    ```
+
+2. Get the servers `ca.crt` from secrets
+
+    ```bash
+    kubectl get secrets cnpg-server-cert -o yaml |yq '.data."ca.crt"' |base64 -d > ca.crt
+    chmod 600 ca.crt
+    ```
+
+3. Expose Postgres with a service:
+
+  - Choose a nodeport to expose:
+
+    ```bash
+    exoort NODE_PORT=30010
+    ```
+  - Create a manifest for the service
+
+    ```bash
+    /bin/cat << EOF > service.yaml
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: cnpg-service
+      labels:
+        cnpg.io/cluster: cnpg
+    spec:
+      type: NodePort
+      ports:
+      - port: 5432
+        nodePort: $NODE_PORT
+        protocol: TCP
+      selector:
+        cnpg.io/cluster: cnpg
+        role: primary
+    EOF
+    ```
+
+  - Create the service:
+
+    ```bash
+    kubectl apply -f service.yaml
+    ```
+
+4. Create a table for the demo data:
+
+    ```bash
+    psql "sslkey=./tls.key 
+          sslcert=./tls.crt 
+          sslrootcert=./ca.crt 
+          host=$LOADBALANCER_IP
+          port=$NODE_PORT 
+          dbname=app 
+          user=app" -c 'CREATE TABLE processors (data JSONB);'
+    ```
+
+5. Download demo data and use script to populate the table
+
+    - Grab a copy of the demo data
+   
       ```bash
-      mc cp ./some-file seaweedfs/backups/
+      wget https://raw.githubusercontent.com/small-hack/argocd-apps/main/postgres/operators/cloud-native-postgres/backups/demo-data.json
       ```
 
-9. Verify its there
+    - Create a script to add the demo data to your table
+    
+      ```
+      /bin/cat << 'EOF' > populate.sh 
+      #!/bin/bash
+      
+      COUNT=$(jq length demo-data.json)
 
-      ```bash
-      mc ls seaweedfs/backups
+      for (( i=0; i<$COUNT; i++ ))
+      do
+          JSON=$(jq ".[$i]" demo-data.json)
+          psql "sslkey=./tls.key
+            sslcert=./tls.crt
+            sslrootcert=./ca.crt
+            host=$LOADBALANCER_IP
+            port=$NODE_PORT
+            dbname=app
+            user=app" -c "INSERT INTO processors VALUES ('$JSON');"
+      done
+      EOF
+      ```
+  
+    - Run the script
+  
+      ```bash  
+      bash populate.sh
       ```
 
-10. Open the Web UI at http://$NODE_IP:8888 in a browser to view or add more data.
+6. Perform a test query against the DB
+
+    ```bash
+    psql "sslkey=./tls.key 
+         sslcert=./tls.crt 
+         sslrootcert=./ca.crt 
+         host=$LOADBALANCER_IP 
+         port=$NODE_PORT 
+         dbname=app 
+         user=app" -c "SELECT data -> 'cpu_name' AS Cpu,
+                              data -> 'cpu_cores' AS Cores,
+                              data -> 'cpu_threads' AS Threads,
+                              data -> 'release_date' AS ReleaseDate,
+                              data -> 'cpumarkSingleThread' AS SingleCorePerf
+                              FROM processors
+                              ORDER BY SingleCorePerf DESC;"
+    ```
+
+    Expected Output:
+    
+    > ```console
+    >               cpu           | cores | threads | releasedate | singlecoreperf
+    > ------------------------+-------+---------+-------------+----------------
+    >  "Xeon E-2378G"         | 8     | 16      | 2021        | 3477
+    >  "Xeon E-2288G"         | 8     | 16      | 2019        | 2783
+    >  "EPYC 7713"            | 64    | 128     | 2021        | 2721
+    >  "EPYC 7763v"           | 64    | 128     | 2021        | 2576
+    >  "Xeon Gold 6338"       | 32    | 64      | 2021        | 2446
+    >  "Xeon Platinum 8375C"  | 32    | 64      | 2021        | 2439
+    >  "Xeon 2696v4"          | 22    | 44      | 2016        | 2179
+    >  "Xeon 2696v3"          | 18    | 36      | 2014        | 2145
+    >  "Xeon E5-2690V4"       | 14    | 28      | 2016        | 2066
+    >  "Xeon Platinum 8173M"  | 28    | 56      | 2017        | 2003
+    >  "EPYC 7402P"           | 24    | 48      | 2019        | 1947
+    >  "Xeon Platinum 8175M"  | 24    | 48      | 2018        | 1796
+    >  "Xeon Platinum 8259CL" | 24    | 48      | 2020        | 1781
+    >  "Xeon 2696v3"          | 12    | 24      | 2013        | 1698
+    >  "Xeon Platinum 8370C"  | 32    | 64      | 2021        | 0
+    > ```
+
 
  <h2 id="configure-scheduled-backups-of-seaweedf3-to-b2">Configure scheduled backups of SeaweedFS to B2</h2>
 
