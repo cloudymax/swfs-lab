@@ -316,7 +316,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
       retentionPolicy: "30d"
       barmanObjectStore:
         destinationPath: "s3://postgres15-backups"
-        endpointURL: "http://$LOADBALANCER_IP:32000"
+        endpointURL: "http://$NODE_IP:8333"
         s3Credentials:
           accessKeyId:
             name: "swfs-credentials"
