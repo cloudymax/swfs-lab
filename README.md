@@ -202,7 +202,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
     EOF
     ```
 
-6. Export your Nodes IP address as an env var
+6. Export your LoadBalancer IP address as an env var
 
    ```bash
    export NODE_IP=""
@@ -265,7 +265,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
 
  2. Create a secret containing a random password for restic
 
-    - Generate a password and base64 encode it.
+    - Generate a password.
 
       ```bash
       export RESTIC_PASS=""
@@ -280,7 +280,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
       metadata:
         name: restic-repo
       type: Opaque
-      data:
+      stringData:
         "password": "$RESTIC_PASS"
       EOF
       ```
@@ -524,27 +524,53 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
       ```bash
       /bin/cat << EOF > restore-values.yaml
       master:
+        enabled: true
         data:
           type: "existingClaim"
           claimName: "swfs-master-data"
+        livenessProbe:
+          periodSeconds: 5
+        readinessProbe:
+          periodSeconds: 5
+
       volume:
-        data:
-          type: "existingClaim"
-          claimName: "swfs-volume-data"
+        enabled: true
+        readMode: proxy
+        dataDirs:
+          - name: data
+            type: "existingClaim"
+            claimName: "swfs-volume-data"
+            maxVolumes: 0
+        idx: {}
+        livenessProbe:
+          periodSeconds: 5
+        readinessProbe:
+          periodSeconds: 5
+
       filer:
+        enabled: true
+        encryptVolumeData: true
         enablePVC: true
+        storage: 10Gi
+        defaultReplicaPlacement: "000"
         data:
           type: "existingClaim"
           claimName: "swfs-filer-data"
         s3:
           enabled: true
+          enableAuth: false
           port: 8333
           httpsPort: 0
           allowEmptyFolder: false
-          domainName: ""
-          enableAuth: false
-          skipAuthSecretCreation: false
-          auditLogConfig: {}
+        livenessProbe:
+          periodSeconds: 5
+        readinessProbe:
+          periodSeconds: 5
+
+      s3:
+        enabled: false
+      cosi:
+        enabled: false
       EOF
       ```
 
