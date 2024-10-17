@@ -28,7 +28,7 @@ spec:
             - containerPort: 8080
               name: "novnc"
           volumeMounts:
-          - mountPath: /shared
+          - mountPath: /home/player1/shared
             name: shared
       volumes:
       - name: shared
