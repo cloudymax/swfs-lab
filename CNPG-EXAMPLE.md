@@ -408,7 +408,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
     psql "sslkey=./tls.key 
           sslcert=./tls.crt 
           sslrootcert=./ca.crt 
-          host=$LOADBALANCER_IP
+          host=$NODE_IP
           port=$NODE_PORT 
           dbname=app 
           user=app" -c 'CREATE TABLE processors (data JSONB);'
@@ -436,7 +436,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
           psql "sslkey=./tls.key
             sslcert=./tls.crt
             sslrootcert=./ca.crt
-            host=$LOADBALANCER_IP
+            host=$NODE_IP
             port=$NODE_PORT
             dbname=app
             user=app" -c "INSERT INTO processors VALUES ('$JSON');"
@@ -456,7 +456,7 @@ PR ref: https://github.com/seaweedfs/seaweedfs/pull/5034
     psql "sslkey=./tls.key 
          sslcert=./tls.crt 
          sslrootcert=./ca.crt 
-         host=$LOADBALANCER_IP 
+         host=$NODE_IP 
          port=$NODE_PORT 
          dbname=app 
          user=app" -c "SELECT data -> 'cpu_name' AS Cpu,
