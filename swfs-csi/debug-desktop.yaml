@@ -15,7 +15,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: ubuntu-xfce
-          image: deserializeme/ubuntu-xfce
+          image: deserializeme/debian-xfce
           env:
           - name: "RESOLUTION"
             value: "1920x1080"
