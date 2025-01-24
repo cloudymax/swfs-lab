@@ -2,32 +2,113 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: swfs-volume-data
+  name: swfs-volume-data-bradley
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 30Gi
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - bradley
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: swfs-master-data
+  name: swfs-volume-data-scremlin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 30Gi
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - scremlin
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: swfs-master-data-bradley
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - bradley
 ---
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: swfs-filer-data
+  name: swfs-master-data-scremlin
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - scremlin
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: swfs-filer-data-bradley
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - bradley
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: swfs-filer-data-scremlin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - scremlin
